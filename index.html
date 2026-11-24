@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Renewal Workspace</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f7fa;color:#172943;font:16px system-ui,sans-serif}header{background:#102640;color:white;padding:17px max(5vw,20px);display:flex;justify-content:space-between;gap:12px}header a{color:#cde7ff}main{max-width:1160px;margin:auto;padding:35px 22px}h1{margin:4px 0;font-size:clamp(32px,6vw,52px);letter-spacing:-.05em}h2{font-size:20px;margin:0 0 12px}p{line-height:1.55;margin:6px 0 14px}.intro{color:#46586e}.controls,.timeline,.metrics,.grid{display:grid;gap:12px}.controls{grid-template-columns:1fr auto;align-items:end;margin:24px 0 12px}.timeline,.metrics{grid-template-columns:repeat(4,1fr);margin-bottom:16px}.grid{grid-template-columns:1.2fr 1fr}.card{background:white;border:1px solid #dce4ee;border-radius:14px;padding:19px}.label,small{color:#46586e}.metric{font-size:28px;font-weight:750;display:block;margin-top:5px}.timeline button,select,button{font:inherit;border:1px solid #a7b8cb;background:white;color:#172943;border-radius:8px;padding:10px 13px}button,select{cursor:pointer}.timeline button{text-align:left}.timeline button[aria-pressed=true],.primary{background:#154f8a;color:#fff;border-color:#154f8a}.timeline button small{display:block;color:inherit;margin-top:3px}.tag{display:inline-block;background:#eef3f9;border-radius:20px;padding:5px 11px;font-weight:650}.risk{background:#ffe7dc;color:#862d13}.good{background:#daf5ed;color:#075742}ul{padding-left:21px;line-height:1.65}details{margin-top:15px}summary{cursor:pointer;font-weight:600}label{display:block;margin-bottom:5px}.bar{height:9px;border-radius:8px;background:#e6edf4;margin:9px 0}.bar span{display:block;background:#2677bc;height:100%;border-radius:inherit}.actions{display:flex;gap:8px;flex-wrap:wrap}.log{margin-top:16px}.log li{margin-bottom:6px}footer{margin-top:18px;color:#46586e;font-size:14px}button:focus-visible,select:focus-visible,summary:focus-visible,a:focus-visible{outline:3px solid #e98b27;outline-offset:3px}@media(max-width:650px){.timeline,.metrics{grid-template-columns:1fr 1fr}.grid,.controls{grid-template-columns:1fr}header{flex-wrap:wrap}}
+</style>
+<header><strong>Renewal Workspace</strong><a href="https://www.linkedin.com/pulse/rethinking-enterprise-saas-renewals-from-contract-expiration-modak-vlbdc/">Read the LinkedIn article ↗</a></header>
+<main>
+<span class="label">Interactive demo · Fictional customer data</span>
+<h1>Renewals start at onboarding</h1>
+<p class="intro">Follow a customer through a 12-month contract. See when the signals change, what action the team can take, and how that changes its renewal recommendation.</p>
+<div class="controls"><div><label for="scenario">Customer scenario</label><select id="scenario"><option value="risk">Northstar Health · Adoption risk</option><option value="growth">Atlas Retail · Expansion opportunity</option></select></div><button id="reset">Reset demo</button></div>
+<nav class="timeline" id="timeline" aria-label="Contract timeline"></nav>
+<section class="metrics" id="metrics" aria-label="Customer signals"></section>
+<div class="grid">
+<section class="card"><h2>Customer evidence</h2><div id="evidence"></div><details><summary>How signals are measured</summary><p>Adoption is the share of licensed users active in the last 30 days. Spend used is cumulative. Value milestones count outcomes verified with the customer. Open issues count unresolved high-priority support cases.</p></details></section>
+<section class="card"><h2>Recommended next step</h2><div id="recommendation" aria-live="polite"></div><div class="actions"><button class="primary" id="approve">Approve action</button><button id="next">Next milestone →</button></div></section>
+</div>
+<section class="card log"><h2>Decision history</h2><div id="log" aria-live="polite"></div></section>
+<footer>Recommendations use scenario rules. Approval records a decision in this demo and can unlock a simulated outcome at a later milestone. Data clears on reload.</footer>
+</main>
+<script>
+const stages=[['Onboarding',1],['Adoption review',4],['Value review',8],['Renewal decision',11]];
+// Each record holds the four metrics, an evidence note, a recommendation, and an accountable owner.
+const scenarios={
+ risk:[
+ [28,8,0,0,'Only one department has completed onboarding.','Agree on adoption targets and schedule training for the second department.','Customer Success'],
+ [32,24,1,2,'Adoption has barely moved. Two integration cases are delaying rollout.','Start a recovery plan with Support and the customer sponsor.','Customer Success + Support'],
+ [36,43,1,2,'The integration cases remain open and consumption trails the contract plan.','Escalate the blockers and schedule a sponsor review.','Account team'],
+ [40,57,1,1,'Usage remains low. The customer has verified one of three outcomes.','Prepare a right-sized renewal and review open issues with the sponsor.','Account team + Finance']],
+ growth:[
+ [42,9,0,0,'Two teams onboarded and named internal champions.','Confirm the customer’s success milestones and owners.','Customer Success'],
+ [66,34,1,0,'Adoption is rising and a third team has requested access.','Validate the third team’s workload and cost assumptions.','Account team'],
+ [81,76,3,0,'The customer verified all three milestones and is using spend faster than planned.','Validate expansion demand and present a capacity forecast.','Account team + Finance'],
+ [88,96,3,0,'Current usage supports renewal. Expansion is pending customer validation.','Prepare a base renewal and confirm the expansion requirement.','Account team + Finance']]
+};
+const recovery={
+ 2:[64,58,2,0,'The recovery plan cleared both integration cases. A second department is now active.','Validate the second outcome with the sponsor and agree on a path to the third.','Customer Success'],
+ 3:[75,82,3,0,'Adoption recovered and all three outcomes were verified during the term.','Prepare renewal at the current scope and confirm the customer’s priorities for next year.','Account team']
+};
+const expansion=[94,99,3,0,'The customer validated a new workload and confirmed expected capacity needs.','Prepare a renewal with an expansion option based on the validated forecast.','Account team + Finance'];
+const el=id=>document.getElementById(id);
+let index=0, history=[];
+function render(){
+ const key=el('scenario').value;
+ const acted=month=>history.some(entry=>entry.key===key&&entry.index===month);
+ const [adoption,spend,value,issues,note,action,owner]=
+ key==='risk'&&acted(1)&&index>=2?recovery[index]:
+ key==='growth'&&acted(2)&&index===3?expansion:scenarios[key][index];
+ el('timeline').innerHTML=stages.map(([name,month],i)=>'<button data-stage="'+i+'" aria-pressed="'+(i===index)+'">'+name+'<small>Month '+month+'</small></button>').join('');
+ const metrics=[['Active users',adoption+'%'],['Commitment used',spend+'%'],['Verified outcomes',value+' / 3'],['Priority issues',issues]];
+ el('metrics').innerHTML=metrics.map(([name,val])=>'<div class="card"><span class="label">'+name+'</span><strong class="metric">'+val+'</strong></div>').join('');
+ const status=index===0?'Baseline':issues>0?'At risk':key==='growth'&&index>=2?'Expansion signal':'On track';
+ const tone=index===0?'':issues>0?'risk':'good';
+ el('evidence').innerHTML='<span class="tag '+tone+'">'+status+'</span><p>'+note+'</p><small>Annual spend commitment used</small><div class="bar" aria-hidden="true"><span style="width:'+spend+'%"></span></div>';
+ el('recommendation').innerHTML='<p>'+action+'</p><p><small>Owner · '+owner+'</small></p>';
+ el('approve').disabled=acted(index);
+ el('approve').textContent=acted(index)?'Action approved':'Approve action';
+ el('approve').onclick=()=>{history.push({key,index,action});render()};
+ el('next').disabled=index===3;
+ el('log').innerHTML=history.filter(entry=>entry.key===key).length?
+ '<ul>'+history.filter(entry=>entry.key===key).map(entry=>'<li><strong>Month '+stages[entry.index][1]+'</strong> · '+entry.action+'</li>').join('')+'</ul>':'<p>Approved actions will appear here.</p>';
+}
+el('timeline').onclick=event=>{const button=event.target.closest('[data-stage]');if(button){index=Number(button.dataset.stage);render();el('timeline').querySelector('[aria-pressed=true]').focus()}};
+el('scenario').onchange=()=>{index=0;render()};
+el('next').onclick=()=>{index++;render()};
+el('reset').onclick=()=>{history=[];index=0;el('scenario').value='risk';render()};
+render();
+</script>
+</html>
